@@ -1,0 +1,225 @@
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from groq import Groq
+from bson import ObjectId
+from datetime import datetime
+import re
+from app.auth.utils import decode_token
+from app.core.database import get_db
+from app.core.config import settings
+from app.ai.schemas import (
+    SummaryRequest, SummaryResponse,
+    QuestionRequest, QuestionResponse,
+    SentimentResponse, NERResponse
+)
+from app.documents.processor import search_similar_chunks, get_all_chunks
+from app.ai.nlp_models import extract_entities_spacy, analyze_sentiment_overall, analyze_sentiment_per_sentence
+
+router = APIRouter(prefix="/ai", tags=["AI Features"])
+security = HTTPBearer()
+groq_client = Groq(api_key=settings.GROQ_API_KEY)
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = decode_token(credentials.credentials)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    db = get_db()
+    user = await db.users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+async def get_document_text(doc_id: str, user_id: str) -> str:
+    chunks = get_all_chunks(doc_id)
+    if not chunks:
+        raise HTTPException(status_code=404, detail="Document content not found")
+    return "\n\n".join(chunks)
+
+async def save_ai_result(db, document_id: str, user_id: str, feature: str, sub_type, result_dict: dict):
+    """Upsert each AI feature's result into the DB so it can be shown again later
+    instead of being lost when the user switches tabs/documents."""
+    await db.ai_results.update_one(
+        {"document_id": document_id, "user_id": user_id, "feature": feature, "sub_type": sub_type},
+        {"$set": {
+            "result": result_dict,
+            "updated_at": datetime.utcnow()
+        }},
+        upsert=True
+    )
+
+@router.post("/summarize", response_model=SummaryResponse)
+async def summarize_document(
+    request: SummaryRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_db()
+    doc = await db.documents.find_one({
+        "_id": ObjectId(request.document_id),
+        "user_id": str(current_user["_id"])
+    })
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if doc["status"] != "ready":
+        raise HTTPException(status_code=400, detail="Document still processing")
+
+    text = await get_document_text(request.document_id, str(current_user["_id"]))
+
+    prompts = {
+        "short": "Provide a concise 2-3 sentence summary of this document.",
+        "detailed": "Provide a comprehensive detailed summary covering all main points.",
+        "bullets": "Summarize this document in bullet points. Each point should be clear and concise.",
+        "key_takeaways": "Extract the 5 most important key takeaways from this document."
+    }
+
+    prompt = prompts.get(request.summary_type, prompts["short"])
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {"role": "system", "content": "You are an expert document summarizer."},
+            {"role": "user", "content": f"{prompt}\n\nDOCUMENT:\n{text}"}
+        ],
+        temperature=0.3,
+        max_tokens=1024
+    )
+
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$inc": {"total_ai_requests": 1}}
+    )
+
+    result_data = {
+        "document_id": request.document_id,
+        "summary_type": request.summary_type,
+        "content": response.choices[0].message.content
+    }
+
+    await save_ai_result(db, request.document_id, str(current_user["_id"]), "summarize", request.summary_type, result_data)
+
+    return SummaryResponse(**result_data)
+
+@router.post("/questions", response_model=QuestionResponse)
+async def generate_questions(
+    request: QuestionRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_db()
+    doc = await db.documents.find_one({
+        "_id": ObjectId(request.document_id),
+        "user_id": str(current_user["_id"])
+    })
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    text = await get_document_text(request.document_id, str(current_user["_id"]))
+
+    prompts = {
+        "faq": "Generate 5 frequently asked questions (FAQ) with answers based on this document.",
+        "interview": "Generate 5 interview questions based on the topics in this document.",
+        "quiz": "Generate 5 quiz questions with multiple choice answers based on this document."
+    }
+
+    prompt = prompts.get(request.question_type, prompts["faq"])
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {"role": "system", "content": "You are an expert at generating questions from documents."},
+            {"role": "user", "content": f"{prompt}\n\nDOCUMENT:\n{text}"}
+        ],
+        temperature=0.5,
+        max_tokens=1024
+    )
+
+    content = response.choices[0].message.content
+    questions = [q.strip() for q in content.split('\n') if q.strip() and len(q.strip()) > 10]
+
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$inc": {"total_ai_requests": 1}}
+    )
+
+    result_data = {
+        "document_id": request.document_id,
+        "question_type": request.question_type,
+        "questions": questions
+    }
+
+    await save_ai_result(db, request.document_id, str(current_user["_id"]), "questions", request.question_type, result_data)
+
+    return QuestionResponse(**result_data)
+
+@router.get("/sentiment/{document_id}", response_model=SentimentResponse)
+async def analyze_sentiment(
+    document_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_db()
+    doc = await db.documents.find_one({
+        "_id": ObjectId(document_id),
+        "user_id": str(current_user["_id"])
+    })
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    text = await get_document_text(document_id, str(current_user["_id"]))
+
+    overall = analyze_sentiment_overall(text)
+    per_sentence = analyze_sentiment_per_sentence(text)
+
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$inc": {"total_ai_requests": 1}}
+    )
+
+    result_data = {"document_id": document_id, **overall, "per_sentence": per_sentence}
+
+    await save_ai_result(db, document_id, str(current_user["_id"]), "sentiment", None, result_data)
+
+    return SentimentResponse(**result_data)
+
+@router.get("/ner/{document_id}", response_model=NERResponse)
+async def extract_entities(
+    document_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_db()
+    doc = await db.documents.find_one({
+        "_id": ObjectId(document_id),
+        "user_id": str(current_user["_id"])
+    })
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    text = await get_document_text(document_id, str(current_user["_id"]))
+
+    entities = extract_entities_spacy(text)
+
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$inc": {"total_ai_requests": 1}}
+    )
+
+    result_data = {"document_id": document_id, **entities}
+
+    await save_ai_result(db, document_id, str(current_user["_id"]), "ner", None, result_data)
+
+    return NERResponse(**result_data)
+
+@router.get("/results/{document_id}")
+async def get_cached_results(
+    document_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Return all saved AI results (summarize/questions/sentiment/ner) for a document,
+    so the frontend can restore them instead of showing a blank state on revisit."""
+    db = get_db()
+    cursor = db.ai_results.find({
+        "document_id": document_id,
+        "user_id": str(current_user["_id"])
+    })
+    items = await cursor.to_list(length=100)
+    for item in items:
+        item["id"] = str(item["_id"])
+        del item["_id"]
+    return {"results": items}

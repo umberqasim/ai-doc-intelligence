@@ -1,0 +1,22 @@
+# Environment secrets
+backend/.env
+.env
+
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Uploaded documents & vector DB (user data, not source code)
+backend/uploads/
+backend/chroma_db/
+
+# Docker
+docker.log
+
+# OS
+.DS_Store

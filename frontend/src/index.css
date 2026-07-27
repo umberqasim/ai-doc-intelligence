@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #080B14;
+  color: #E2E8F0;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0F1629; }
+::-webkit-scrollbar-thumb { background: #7C3AED; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #9D5CF5; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(124, 58, 237, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.7); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-fadeIn { animation: fadeIn 0.4s ease forwards; }
+.animate-slideIn { animation: slideIn 0.3s ease forwards; }
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+/* Glass morphism */
+.glass {
+  background: rgba(15, 22, 41, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+.glass-dark {
+  background: rgba(8, 11, 20, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(124, 58, 237, 0.1);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #7C3AED, #06B6D4, #7C3AED);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Neon border */
+.neon-border {
+  border: 1px solid rgba(124, 58, 237, 0.5);
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.2), inset 0 0 10px rgba(124, 58, 237, 0.05);
+}
+
+.neon-border:hover {
+  border-color: rgba(124, 58, 237, 0.8);
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4), inset 0 0 20px rgba(124, 58, 237, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* Shimmer loading */
+.shimmer {
+  background: linear-gradient(90deg, #1a1f35 25%, #252b45 50%, #1a1f35 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Markdown styles */
+.markdown h1, .markdown h2, .markdown h3 {
+  color: #A78BFA;
+  font-weight: 700;
+  margin: 16px 0 8px 0;
+}
+.markdown h1 { font-size: 1.4rem; }
+.markdown h2 { font-size: 1.2rem; }
+.markdown h3 { font-size: 1rem; }
+.markdown p { margin: 8px 0; color: #CBD5E1; line-height: 1.7; }
+.markdown ul, .markdown ol { padding-left: 20px; margin: 8px 0; }
+.markdown li { color: #CBD5E1; margin: 4px 0; line-height: 1.6; }
+.markdown strong { color: #E2E8F0; font-weight: 700; }
+.markdown em { color: #A78BFA; font-style: italic; }
+.markdown code {
+  background: rgba(124, 58, 237, 0.2);
+  color: #A78BFA;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+.markdown pre {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(124,58,237,0.2);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+.markdown blockquote {
+  border-left: 3px solid #7C3AED;
+  padding-left: 12px;
+  color: #94A3B8;
+  margin: 8px 0;
+}
+
+/* Custom button */
+.btn-primary {
+  background: linear-gradient(135deg, #7C3AED, #6D28D9);
+  transition: all 0.3s ease;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #9D5CF5, #7C3AED);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+}
+
+/* Card hover */
+.card-hover {
+  transition: all 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.2);
+}
+
+/* Typing dots */
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-8px); opacity: 1; }
+}
+.typing-dot:nth-child(1) { animation: typing 1.2s ease infinite 0ms; }
+.typing-dot:nth-child(2) { animation: typing 1.2s ease infinite 150ms; }
+.typing-dot:nth-child(3) { animation: typing 1.2s ease infinite 300ms; }

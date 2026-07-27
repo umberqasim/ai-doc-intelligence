@@ -1,0 +1,122 @@
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from datetime import datetime
+from groq import Groq
+from app.auth.utils import decode_token
+from app.core.database import get_db
+from app.core.config import settings
+from app.chat.schemas import ChatRequest, ChatResponse, ConversationResponse
+from app.documents.processor import search_similar_chunks
+from bson import ObjectId
+
+router = APIRouter(prefix="/chat", tags=["Chat"])
+security = HTTPBearer()
+
+groq_client = Groq(api_key=settings.GROQ_API_KEY)
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    email = decode_token(credentials.credentials)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    db = get_db()
+    user = await db.users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@router.post("/query", response_model=ChatResponse)
+async def chat_with_document(
+    request: ChatRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_db()
+
+    # Document check karo
+    doc = await db.documents.find_one({
+        "_id": ObjectId(request.document_id),
+        "user_id": str(current_user["_id"])
+    })
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if doc["status"] != "ready":
+        raise HTTPException(status_code=400, detail="Document still processing")
+
+    # Similar chunks dhundo
+    chunks = search_similar_chunks(request.document_id, request.question)
+
+    if not chunks:
+        raise HTTPException(status_code=404, detail="No relevant content found")
+
+    # Context banao
+    context = "\n\n".join([f"Chunk {i+1}:\n{chunk}" for i, chunk in enumerate(chunks)])
+
+    # Groq se answer lo
+    prompt = f"""You are an AI assistant helping users understand their documents.
+
+Based on the following document content, answer the user's question accurately and helpfully.
+
+DOCUMENT CONTENT:
+{context}
+
+USER QUESTION:
+{request.question}
+
+Please provide a clear, accurate answer based only on the document content above.
+If the answer is not in the document, say so clearly."""
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {"role": "system", "content": "You are a helpful AI assistant that answers questions about documents accurately."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.3,
+        max_tokens=1024
+    )
+
+    answer = response.choices[0].message.content
+
+    # Conversation history save karo
+    conversation = {
+        "document_id": request.document_id,
+        "user_id": str(current_user["_id"]),
+        "messages": [
+            {"role": "user", "content": request.question, "timestamp": datetime.utcnow()},
+            {"role": "assistant", "content": answer, "timestamp": datetime.utcnow()}
+        ],
+        "created_at": datetime.utcnow()
+    }
+    await db.conversations.insert_one(conversation)
+
+    # User stats update karo
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$inc": {"total_conversations": 1, "total_ai_requests": 1}}
+    )
+
+    return ChatResponse(
+        answer=answer,
+        sources=chunks[:3],
+        document_id=request.document_id,
+        question=request.question
+    )
+
+@router.get("/history/{document_id}")
+async def get_chat_history(
+    document_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    db = get_db()
+    cursor = db.conversations.find({
+        "document_id": document_id,
+        "user_id": str(current_user["_id"])
+    }).sort("created_at", -1).limit(20)
+
+    conversations = await cursor.to_list(length=20)
+    for conv in conversations:
+        conv["id"] = str(conv["_id"])
+        del conv["_id"]
+
+    return {"conversations": conversations, "total": len(conversations)}

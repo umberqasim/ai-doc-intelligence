@@ -163,7 +163,6 @@ AI-Doc-Intelligence/
 
 - **LLM choice:** Uses Groq's `llama-3.3-70b-versatile` (open-source Llama) instead of GPT-4o/Gemini for speed and cost. An earlier attempt with a smaller model (`llama-3.1-8b-instant`) showed a tendency to "auto-correct" uncommon name spellings; upgrading to the 70B model resolved this at the source rather than patching around it with prompts.
 - **NER on unstructured documents:** spaCy's small model (`en_core_web_sm`) occasionally misclassifies entities on heavily bulleted/technical documents. A hybrid pipeline (spaCy detection + LLM verification) reduces this significantly, though it isn't perfect on every document. A transformer-based spaCy model was evaluated but is blocked by a real dependency conflict: `spacy-transformers` requires `transformers<4.37`, while `sentence-transformers` and the HuggingFace sentiment pipeline in this stack need a newer `transformers` version.
-- **OCR was evaluated and removed:** Tesseract OCR worked reliably on printed/typed scans but was slow (3+ minutes) and inaccurate on handwritten documents — a known limitation of traditional OCR engines. Rather than ship a feature that silently fails on a common real-world case, OCR was removed from the final scope.
 - **Dashboard caching:** Uses a short Redis TTL (5s) instead of write-time cache invalidation — simpler implementation, imperceptible staleness in practice.
 - **Vector store:** ChromaDB (not FAISS) — both were acceptable per spec. HNSW parameters (`construction_ef`, `search_ef`, `M`) were tuned for a balance of accuracy and speed.
 

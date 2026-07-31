@@ -1,0 +1,20 @@
+Research Notes: Impact of Remote Work on Employee Productivity
+
+Introduction
+This study examines the effects of remote work arrangements on employee productivity, job satisfaction, and work-life balance across 15 companies in the technology sector. Data was collected between January 2025 and June 2026 from 1,200 employees.
+
+Methodology
+Researchers Dr. Amara Hassan and Dr. James Whitfield conducted surveys and productivity assessments quarterly. Companies included in the study were headquartered in San Francisco, London, Toronto, and Singapore.
+
+Key Findings
+Employees working remotely at least three days per week reported a 12% increase in self-assessed productivity compared to fully office-based employees. However, fully remote employees (five days per week) showed no significant productivity difference from office-based counterparts, suggesting that hybrid arrangements may offer the strongest outcomes.
+
+Job satisfaction scores were notably higher among hybrid workers, averaging 8.1 out of 10, compared to 6.9 for fully office-based employees and 7.4 for fully remote employees. The study attributes this to hybrid workers experiencing both social connection and autonomy.
+
+Concerns and Limitations
+Several participants noted increased difficulty in mentorship and onboarding for new employees in remote settings. Companies such as InnovateTech and CloudBridge Systems reported implementing structured "buddy programs" to address this gap.
+
+Conclusion
+The research suggests that a hybrid work model, offering 2-3 remote days per week, may provide the optimal balance between productivity, satisfaction, and organizational cohesion. Further longitudinal research is recommended to assess long-term career progression effects.
+
+Contact: research@workstudies.example.org

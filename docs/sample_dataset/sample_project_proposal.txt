@@ -1,0 +1,25 @@
+Project Proposal: Smart Campus Energy Management System
+
+Submitted by: Ayesha Malik, Bilal Ahmed
+Department of Electrical Engineering
+Date: March 2026
+
+Problem Statement
+University campuses consume significant amounts of energy, often with inefficient usage patterns due to lack of real-time monitoring. This project proposes an IoT-based Smart Campus Energy Management System to monitor and optimize electricity consumption across campus buildings.
+
+Objectives
+The primary objective is to reduce overall campus energy consumption by 20% within the first year of deployment. Secondary objectives include providing real-time consumption data to facility managers and identifying equipment malfunctions before they cause major failures.
+
+Proposed Solution
+The system will use ESP32 microcontrollers connected to current sensors installed at building distribution panels. Data will be transmitted via Wi-Fi to a central server running a Python-based analytics backend, with a web dashboard for visualization built using React.
+
+Timeline
+Phase 1 (Months 1-2): Hardware procurement and sensor installation in the Engineering building.
+Phase 2 (Months 3-4): Backend development and data pipeline setup.
+Phase 3 (Months 5-6): Dashboard development and testing across three additional buildings.
+
+Budget
+The estimated budget for this project is $8,500, covering hardware components, cloud hosting costs, and testing equipment.
+
+Expected Impact
+If successful, this system could be scaled to all 12 buildings on campus, potentially saving the university an estimated $45,000 annually in electricity costs.

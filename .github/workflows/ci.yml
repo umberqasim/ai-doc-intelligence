@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check backend syntax
+        run: |
+          cd backend
+          python -m py_compile main.py celery_app.py tasks.py
+          find app -name "*.py" -exec python -m py_compile {} \;
+
+  frontend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+  full-stack-build:
+    runs-on: ubuntu-latest
+    needs: [backend-checks, frontend-checks]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create backend .env from secrets
+        run: |
+          cat > backend/.env << ENVEOF
+          MONGODB_URL=${{ secrets.MONGODB_URL }}
+          DATABASE_NAME=${{ secrets.DATABASE_NAME }}
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          ALGORITHM=${{ secrets.ALGORITHM }}
+          ACCESS_TOKEN_EXPIRE_MINUTES=${{ secrets.ACCESS_TOKEN_EXPIRE_MINUTES }}
+          REFRESH_TOKEN_EXPIRE_DAYS=${{ secrets.REFRESH_TOKEN_EXPIRE_DAYS }}
+          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+          REDIS_URL=redis://redis:6379/0
+          ENVEOF
+
+      - name: Build and start full stack
+        run: docker compose up -d --build
+
+      - name: Wait for backend to be healthy
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:8000/health; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 10
+          done
+          echo "Backend failed to become healthy"
+          docker compose logs backend
+          exit 1
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

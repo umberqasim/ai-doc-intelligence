@@ -1,0 +1,89 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ai-doc-redis-prod
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal
+
+  backend:
+    build: ./backend
+    container_name: ai-doc-backend-prod
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+      - chroma_data:/app/chroma_db
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  celery_worker:
+    build: ./backend
+    container_name: ai-doc-celery-prod
+    restart: unless-stopped
+    command: celery -A celery_app worker --loglevel=warning --pool=solo
+    env_file:
+      - ./backend/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+      - chroma_data:/app/chroma_db
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: /api/v1
+    container_name: ai-doc-frontend-prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - internal
+
+  nginx:
+    image: nginx:alpine
+    container_name: ai-doc-nginx-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  uploads_data:
+  chroma_data:

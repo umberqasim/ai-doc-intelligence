@@ -52,6 +52,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create placeholder .env for validation
+        run: |
+          cat > backend/.env << ENVEOF
+          MONGODB_URL=placeholder
+          DATABASE_NAME=placeholder
+          SECRET_KEY=placeholder
+          ALGORITHM=HS256
+          ACCESS_TOKEN_EXPIRE_MINUTES=30
+          REFRESH_TOKEN_EXPIRE_DAYS=7
+          GROQ_API_KEY=placeholder
+          ENVEOF
+
       - name: Validate docker-compose.yml syntax
         run: docker compose -f docker-compose.yml config --quiet
 
